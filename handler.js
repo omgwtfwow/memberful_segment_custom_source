@@ -22,7 +22,9 @@ exports.processEvents = async (event) => {
     ];
     let notInterested = _.includes(notInteresting, memberfulEvent);
     if (notInterested === true) {
-        return false;
+        //return empty
+        let returnValue = {events: []};
+        return (returnValue);
     }
     //the events we are handling
     const eventNameArray = {
