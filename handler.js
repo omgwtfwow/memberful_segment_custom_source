@@ -80,6 +80,8 @@ exports.processEvents = async (event) => {
                 if (memberfulEvent === 'order.purchased' || memberfulEvent === 'order.refunded' || memberfulEvent === 'order.suspended') {
                     return {
                         orderTotal: order.total / 100,
+                        value: order.total / 100,
+                        total: order.total / 100, //my project doesn't require 'revenue'
                         currency: 'AUD',
                         stripeCustomerId: order.member.stripe_customer_id,
                         checkoutId: order.uuid,
