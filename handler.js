@@ -1,4 +1,5 @@
 const _ = require('lodash');
+const merge = require('lodash.merge');
 exports.processEvents = async (event) => {
     let eventBody = event.payload.body,
         eventHeaders = event.payload.headers,
@@ -23,7 +24,6 @@ exports.processEvents = async (event) => {
     if (notInterested === true) {
         return false;
     }
-
     //the events we are handling
     const eventNameArray = {
         "member_signup": "Signed Up",
@@ -40,7 +40,6 @@ exports.processEvents = async (event) => {
         "subscription.activated": "Subscription Activated",
         "subscription.deleted": "Subscription Deleted"
     };
-
     if (order !== false) {
         subscriptions = _.get(order, 'subscriptions', false);
         subscription = _.get(subscriptions[0], 'subscription', false);
@@ -55,6 +54,8 @@ exports.processEvents = async (event) => {
             return null;
         }
     };
+    let defaults;
+    let eventProps;
     if (eventName !== "" && eventName !== 'null' && eventName !== null) {
         let userId = function (eventBody) {
                 let val;
@@ -87,8 +88,6 @@ exports.processEvents = async (event) => {
                 }
                 if (memberfulEvent === 'member_updated') {
                     return {
-                        userId: userId(memberfulEvent),
-                        email: member.email,
                         changed: {
                             old_email: eventBody.changed.email[0],
                             new_email: eventBody.changed.email[1]
@@ -135,16 +134,11 @@ exports.processEvents = async (event) => {
                         subscription_created: subscriptionInQuestion.created_at,
                         subscription_expires_at: subscriptionInQuestion.expires_at,
                         subscription_autorenew: subscriptionInQuestion.autorenew,
-                        subscription_active: subscriptionInQuestion.active,
-                        userId: userId(eventBody),
-                        email: member.email,
-                        changed: {
-                            old_email: member.changed[0],
-                            new_email: member.changed[1]
-                        }
+                        subscription_active: subscriptionInQuestion.active
                     };
                 }
             };
+
         //identify
         identify = {
             type: 'identify',
@@ -162,11 +156,19 @@ exports.processEvents = async (event) => {
                 signupMethod: member.signup_method
             }
         };
+        eventProps = eventProperties(memberfulEvent);
+
+        //add uid and email to track calls, usually email tools require it
+        defaults = {
+            userId: userId(memberfulEvent),
+            email: member.email
+        };
+
         track = {
             type: 'track',
             event: eventName(memberfulEvent),
             userId: userId(eventBody),
-            properties: eventProperties(memberfulEvent)
+            properties: merge(eventProps, defaults)
         };
 
         let returnValue = {events: [identify, track]};
