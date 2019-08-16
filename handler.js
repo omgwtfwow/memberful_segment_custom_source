@@ -22,9 +22,7 @@ exports.processEvents = async (event) => {
     ];
     let notInterested = _.includes(notInteresting, memberfulEvent);
     if (notInterested === true) {
-        //return empty
-        let returnValue = {events: []};
-        return (returnValue);
+        return false;
     }
     //the events we are handling
     const eventNameArray = {
@@ -125,7 +123,7 @@ exports.processEvents = async (event) => {
                         }
                     };
                 }
-                if (memberfulEvent === 'subscription.created' || 'subscription.updated' || 'subscription.renewed' || 'subscription.deactivated' || 'subscription.activated' || 'subscription.deleted') {
+                if (memberfulEvent === 'subscription.created' || memberfulEvent === 'subscription.updated' || memberfulEvent === 'subscription.renewed' || memberfulEvent === 'subscription.deactivated' || memberfulEvent === 'subscription.activated' || memberfulEvent === 'subscription.deleted') {
                     return {
                         plan_id: subscriptionPlan.id,
                         plan_price: subscriptionPlan.price / 100,
@@ -168,7 +166,7 @@ exports.processEvents = async (event) => {
 
         track = {
             type: 'track',
-            event: eventName(memberfulEvent),
+            event: eventName(memberfulEvent) + " - Server",
             userId: userId(eventBody),
             properties: merge(eventProps, defaults)
         };
