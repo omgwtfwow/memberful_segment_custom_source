@@ -19,8 +19,8 @@ exports.processEvents = async (event) => {
         "download.updated",
         "download.deleted"
     ];
-    let interested = _.includes(notInteresting, memberfulEvent);
-    if (interested === false) {
+    let notInterested = _.includes(notInteresting, memberfulEvent);
+    if (notInterested === true) {
         return false;
     }
 
