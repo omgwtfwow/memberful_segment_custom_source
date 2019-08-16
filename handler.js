@@ -10,12 +10,29 @@ exports.processEvents = async (event) => {
         subscription,
         subscriptionInQuestion = _.get(eventBody, 'subscription', false),
         subscriptionPlan;
+    //events not handled
+    const notInteresting = [
+        "subscription_plan.created",
+        "subscription_plan.updated",
+        "subscription_plan.deleted",
+        "download.created",
+        "download.updated",
+        "download.deleted"
+    ];
+    let interested = _.includes(notInteresting, memberfulEvent);
+    if (interested === false) {
+        return false;
+    }
+
+    //the events we are handling
     const eventNameArray = {
         "member_signup": "Signed Up",
         "member_updated": "Member Updated",
+        "member_deleted": "Member Deleted",
         "order.purchased": "Order Completed",
         "order.refunded": "Order Refunded",
         "order.suspended": "Order Suspended",
+        "order.completed": "Order Marked Complete",
         "subscription.created": "Subscription Created",
         "subscription.updated": "Subscription Updated",
         "subscription.renewed": "Subscription Renewed",
@@ -23,6 +40,7 @@ exports.processEvents = async (event) => {
         "subscription.activated": "Subscription Activated",
         "subscription.deleted": "Subscription Deleted"
     };
+
     if (order !== false) {
         subscriptions = _.get(order, 'subscriptions', false);
         subscription = _.get(subscriptions[0], 'subscription', false);
@@ -77,7 +95,13 @@ exports.processEvents = async (event) => {
                         }
                     };
                 }
-                if (memberfulEvent === 'order.purchased' || memberfulEvent === 'order.refunded' || memberfulEvent === 'order.suspended') {
+                if (memberfulEvent === 'member_deleted') {
+                    return {
+                        userId: userId(memberfulEvent),
+                        deleted: true
+                    };
+                }
+                if (memberfulEvent === 'order.purchased' || memberfulEvent === 'order.refunded' || memberfulEvent === 'order.suspended' || memberfulEvent === 'order.completed') {
                     return {
                         orderTotal: order.total / 100,
                         value: order.total / 100,
