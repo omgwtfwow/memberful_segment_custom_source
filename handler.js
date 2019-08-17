@@ -1,16 +1,13 @@
 const _ = require('lodash');
 const merge = require('lodash.merge');
 exports.processEvents = async (event) => {
-    let eventBody = event.payload.body,
-        eventHeaders = event.payload.headers,
-        queryParameters = event.payload.queryParameters,
-        memberfulEvent = eventBody['event'],
-        member = _.get(eventBody, 'member', false),
-        order = _.get(eventBody, 'order', false),
-        subscriptions,
-        subscription,
-        subscriptionInQuestion = _.get(eventBody, 'subscription', false),
-        subscriptionPlan;
+    let eventBody = event.payload.body, eventHeaders = event.payload.headers,
+        queryParameters = event.payload.queryParameters, memberfulEvent = eventBody['event'],
+        member = _.get(eventBody, 'member', false), order = _.get(eventBody, 'order', false), subscriptions,
+        subscription, subscriptionInQuestion = _.get(eventBody, 'subscription', false), subscriptionPlan,
+        returnValue = {
+            events: []
+        };
     //events not handled
     const notInteresting = [
         "subscription_plan.created",
@@ -22,7 +19,7 @@ exports.processEvents = async (event) => {
     ];
     let notInterested = _.includes(notInteresting, memberfulEvent);
     if (notInterested === true) {
-        return false;
+        return (returnValue);
     }
     //the events we are handling
     const eventNameArray = {
@@ -51,7 +48,7 @@ exports.processEvents = async (event) => {
         if (eventNameArray[memberfulEvent] !== 'null' && eventNameArray[memberfulEvent] !== null && eventNameArray[memberfulEvent] !== null) {
             return eventNameArray[memberfulEvent];
         } else {
-            return null;
+            return (returnValue);
         }
     };
     let defaults;
