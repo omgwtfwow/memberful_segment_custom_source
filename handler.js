@@ -1,13 +1,16 @@
 const _ = require('lodash');
 const merge = require('lodash.merge');
 exports.processEvents = async (event) => {
-    let eventBody = event.payload.body, eventHeaders = event.payload.headers,
-        queryParameters = event.payload.queryParameters, memberfulEvent = eventBody['event'],
-        member = _.get(eventBody, 'member', false), order = _.get(eventBody, 'order', false), subscriptions,
-        subscription, subscriptionInQuestion = _.get(eventBody, 'subscription', false), subscriptionPlan,
-        returnValue = {
-            events: []
-        };
+    let eventBody = event.payload.body,
+        eventHeaders = event.payload.headers,
+        queryParameters = event.payload.queryParameters,
+        returnValue = {events: []},
+        memberfulEvent;
+    if (_.get(eventBody, 'event', false) === false) {
+        return (returnValue);
+    } else {
+        memberfulEvent = _.get(eventBody, 'event');
+    }
     //events not handled
     const notInteresting = [
         "subscription_plan.created",
@@ -22,7 +25,7 @@ exports.processEvents = async (event) => {
         return (returnValue);
     }
     //the events we are handling
-    const eventNameArray = {
+    const eventNames = {
         "member_signup": "Signed Up",
         "member_updated": "Member Updated",
         "member_deleted": "Member Deleted",
@@ -37,53 +40,61 @@ exports.processEvents = async (event) => {
         "subscription.activated": "Subscription Activated",
         "subscription.deleted": "Subscription Deleted"
     };
-    if (order !== false) {
-        subscriptions = _.get(order, 'subscriptions', false);
-        subscription = _.get(subscriptions[0], 'subscription', false);
+    let eventName = _.get(eventNames, memberfulEvent, false);
+    if (eventName === false) {
+        return (returnValue);
     }
-    if (subscriptionInQuestion !== false) {
-        subscriptionPlan = _.get(subscriptionInQuestion, 'subscription_plan', false)
-    }
-    let eventName = function (memberfulEvent) {
-        if (eventNameArray[memberfulEvent] !== 'null' && eventNameArray[memberfulEvent] !== null && eventNameArray[memberfulEvent] !== null) {
-            return eventNameArray[memberfulEvent];
-        } else {
-            return (returnValue);
+    let member;
+    let order;
+    let subscription;
+    member = _.get(eventBody, 'member', false);
+    order = _.get(eventBody, 'order', false);
+    subscription = _.get(eventBody, 'subscription', false);
+    let userId = function () {
+        if (member !== false) {
+            return member.id.toString()
         }
+        if (order !== false) {
+            member = _.get(order, 'member');
+            return member.id.toString()
+        }
+        if (subscription !== false) {
+            member = _.get(subscription, 'member');
+            return member.id.toString()
+        }
+
+        return null;
+
     };
-    let defaults;
-    let eventProps;
-    if (eventName !== "" && eventName !== 'null' && eventName !== null) {
-        let userId = function (eventBody) {
-                let val;
-                if (member !== false) {
-                    val = member.id;
-                }
-                if (order !== false) {
-                    member = _.get(eventBody.order, 'member', false);
-                    val = member.id;
-                }
-                if (subscriptionInQuestion !== false) {
-                    member = _.get(subscriptionInQuestion, 'member', false);
-                    val = member.id;
-                }
-                return val.toString();
-            },
-            identify,
-            track,
-            eventProperties = function (memberfulEvent) {
-                if (memberfulEvent === 'member_signup') {
-                    return {
-                        userId: userId(memberfulEvent),
-                        email: member.email,
-                        firstName: member.first_name,
-                        lastName: member.last_name,
-                        name: member.full_name,
-                        memberfulCustomField: member.custom_field,
-                        signupMethod: member.signup_method
-                    };
-                }
-                if (memberfulEvent === 'member_updated') {
+    if (userId() === null) {
+        return (returnValue);
+    }
+    let traits = {
+        email: member.email,
+        firstName: member.first_name,
+        lastName: member.last_name,
+        name: member.full_name,
+        number: member.phone_number,
+        stripeCustomerId: member.stripe_customer_id,
+        address: member.address,
+        memberfulCustomField: member.custom_field,
+        creditCard: member.credit_card,
+        signupMethod: member.signup_method
+    };
+    let eventProperties = function () {
+        //member events
+        if (memberfulEvent === 'member_signup') {
+            return {
+                userId: userId(),
+                email: member.email,
+                firstName: member.first_name,
+                lastName: member.last_name,
+                name: member.full_name,
+                memberfulCustomField: member.custom_field,
+                signupMethod: member.signup_method
+            };
+        }
+        if (memberfulEvent === 'member_updated') {
                     return {
                         changed: {
                             old_email: eventBody.changed.email[0],
@@ -91,19 +102,21 @@ exports.processEvents = async (event) => {
                         }
                     };
                 }
-                if (memberfulEvent === 'member_deleted') {
+        if (memberfulEvent === 'member_deleted') {
                     return {
-                        userId: userId(memberfulEvent),
+                        userId: userId(),
                         deleted: true
                     };
                 }
-                if (memberfulEvent === 'order.purchased' || memberfulEvent === 'order.refunded' || memberfulEvent === 'order.suspended' || memberfulEvent === 'order.completed') {
-                    return {
+        if (memberfulEvent === 'order.purchased' || memberfulEvent === 'order.refunded' || memberfulEvent === 'order.suspended' || memberfulEvent === 'order.completed') {
+            subscription = _.get(order, 'subscriptions[0]', false);
+            let subscriptionDetails = _.get(subscription, 'subscription', false);
+            return {
                         orderTotal: order.total / 100,
                         value: order.total / 100,
                         total: order.total / 100, //my project doesn't require 'revenue'
                         currency: 'AUD',
-                        stripeCustomerId: order.member.stripe_customer_id,
+                stripeCustomerId: member.stripe_customer_id,
                         checkoutId: order.uuid,
                         order_id: order.number,
                         order_status: order.status,
@@ -113,63 +126,46 @@ exports.processEvents = async (event) => {
                             sku: subscription.id,
                             name: subscription.name,
                             price: subscription.price / 100,
-                            category: subscription.renewal_period,
-                            activatedAt: subscription.ativated_at,
-                            createdAt: subscriptions[0].created_at,
-                            expiresAt: subscriptions[0].expires_at
+                            category: subscriptionDetails.renewal_period,
+                            activatedAt: subscriptionDetails.ativated_at,
+                            createdAt: subscriptionDetails.created_at,
+                            expiresAt: subscriptionDetails.expires_at
                         }
                     };
-                }
-                if (memberfulEvent === 'subscription.created' || memberfulEvent === 'subscription.updated' || memberfulEvent === 'subscription.renewed' || memberfulEvent === 'subscription.deactivated' || memberfulEvent === 'subscription.activated' || memberfulEvent === 'subscription.deleted') {
-                    return {
-                        plan_id: subscriptionPlan.id,
-                        plan_price: subscriptionPlan.price_cents / 100,
-                        plan_name: subscriptionPlan.name,
-                        plan_interval_unit: subscriptionPlan.interval_unit,
-                        plan_interval_count: subscriptionPlan.interval_count,
-                        subscription_id: subscriptionInQuestion.id,
-                        subscription_created: subscriptionInQuestion.created_at,
-                        subscription_expires_at: subscriptionInQuestion.expires_at,
-                        subscription_autorenew: subscriptionInQuestion.autorenew,
-                        subscription_active: subscriptionInQuestion.active
-                    };
-                }
+        }
+        if (memberfulEvent === 'subscription.created' || memberfulEvent === 'subscription.updated' || memberfulEvent === 'subscription.renewed' || memberfulEvent === 'subscription.deactivated' || memberfulEvent === 'subscription.activated' || memberfulEvent === 'subscription.deleted') {
+            let subscriptionPlan = _.get(subscription, 'subscription_plan', false);
+            return {
+                plan_id: subscriptionPlan.id,
+                plan_price: subscriptionPlan.price_cents / 100,
+                plan_name: subscriptionPlan.name,
+                plan_interval_unit: subscriptionPlan.interval_unit,
+                plan_interval_count: subscriptionPlan.interval_count,
+                subscription_id: subscription.id,
+                subscription_created: subscription.created_at,
+                subscription_expires_at: subscription.expires_at,
+                subscription_autorenew: subscription.autorenew,
+                subscription_active: subscription.active
             };
-
-        //identify
-        identify = {
-            type: 'identify',
-            userId: userId(eventBody),
-            traits: {
-                email: member.email,
-                firstName: member.first_name,
-                lastName: member.last_name,
-                name: member.full_name,
-                number: member.phone_number,
-                stripeCustomerId: member.stripe_customer_id,
-                address: member.address,
-                memberfulCustomField: member.custom_field,
-                creditCard: member.credit_card,
-                signupMethod: member.signup_method
-            }
-        };
-        eventProps = eventProperties(memberfulEvent);
-
-        //add uid and email to track calls, usually email tools require it
-        defaults = {
-            userId: userId(memberfulEvent),
-            email: member.email
-        };
-
-        track = {
-            type: 'track',
-            event: eventName(memberfulEvent) + " - Server",
-            userId: userId(eventBody),
-            properties: merge(eventProps, defaults)
-        };
-
-        let returnValue = {events: [identify, track]};
-        return (returnValue);
-    }
+        }
+    };
+    //identify
+    let identify = {
+        type: 'identify',
+        userId: userId(),
+        traits: traits
+    };
+    //add uid and email to track calls, usually email tools require it
+    let defaults = {
+        userId: userId(),
+        email: member.email
+    };
+    let track = {
+        type: 'track',
+        event: eventName + " - Server",
+        userId: userId(),
+        properties: merge(eventProperties(), defaults)
+    };
+    returnValue = {events: [identify, track]};
+    return (returnValue)
 };
-
