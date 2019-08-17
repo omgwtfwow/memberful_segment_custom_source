@@ -123,7 +123,7 @@ exports.processEvents = async (event) => {
                 if (memberfulEvent === 'subscription.created' || memberfulEvent === 'subscription.updated' || memberfulEvent === 'subscription.renewed' || memberfulEvent === 'subscription.deactivated' || memberfulEvent === 'subscription.activated' || memberfulEvent === 'subscription.deleted') {
                     return {
                         plan_id: subscriptionPlan.id,
-                        plan_price: subscriptionPlan.price / 100,
+                        plan_price: subscriptionPlan.price_cents / 100,
                         plan_name: subscriptionPlan.name,
                         plan_interval_unit: subscriptionPlan.interval_unit,
                         plan_interval_count: subscriptionPlan.interval_count,
